@@ -3,7 +3,7 @@
     class="fullscreen bg-primary text-white text-center row flex-center"
     style="padding-left: 32px; padding-right: 32px; padding-top: 16px; padding-bottom: 16px"
   >
-    <div class="col-9 scroll-area q-pr-md" :class="{ 'hidden-on-preview': showCountdownPreview }">
+    <div class="col-9 scroll-area q-pr-md" :class="{ 'hidden-on-preview': showCountdownPreview || showLetsGoAnimation }">
       <h2 class="text-center">Pilih Template Frame</h2>
       <div class="frame-list q-mt-md">
         <div
@@ -18,7 +18,11 @@
       </div>
     </div>
 
-    <div class="col-3 q-pl-md sticky-frame" :class="{ 'hidden-on-preview': showCountdownPreview }" style="position: sticky; top: 80px">
+    <div
+      class="col-3 q-pl-md sticky-frame"
+      :class="{ 'hidden-on-preview': showCountdownPreview || showLetsGoAnimation }"
+      style="position: sticky; top: 80px"
+    >
       <h3 class="text-center">Preview Pilihan</h3>
 
       <div v-if="selected" class="q-mt-md text-center">
@@ -67,39 +71,45 @@
         ></countdown-timer>
       </div>
     </div>
+
+    <div v-if="showLetsGoAnimation" class="fullscreen column justify-center items-center lets-go-overlay">
+      <h1 class="lets-go-text">Let's Go!</h1>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { useRouter } from 'vue-router'
-import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue' // Tambahkan 'computed', 'nextTick'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { jwtDecode } from 'jwt-decode'
 
-// Import store dan komponen yang diperlukan untuk preview
+// Import store dan komponen
 import { useStateStore } from '../stores/state-store'
 import { useConfigurationStore } from '../stores/configuration-store'
 import { default as PreviewStream } from '../components/PreviewStream.vue'
-import CountdownTimer from '../components/CountdownTimer.vue' // Import CountdownTimer
+import CountdownTimer from '../components/CountdownTimer.vue'
 
+// --- Inisialisasi ---
 const router = useRouter()
-const stateStore = useStateStore() // Inisialisasi store
-const configurationStore = useConfigurationStore() // Inisialisasi store
+const stateStore = useStateStore()
+const configurationStore = useConfigurationStore()
 
+// --- State Reaktif ---
 const frames = ref([])
 const selected = ref(null)
-const tokenKey = 'photobooth_access_token'
-const API_BASE = 'http://localhost:9000'
-
-let refreshInterval = null
-let countdownTimeout = null // Untuk mengelola timeout preview
-
-// State baru untuk mengontrol tampilan preview dan overlay
 const showCountdownPreview = ref(false)
+const showLetsGoAnimation = ref(false)
 
-function goToIndexPage() {
-  router.push({ name: 'indexPage' })
-}
+// --- Konstanta ---
+const tokenKey = 'photobooth_access_token'
+const API_BASE = 'http://localhost:9000' // Pastikan port ini sesuai dengan backend Anda
 
+// --- Variabel Internal ---
+let refreshInterval = null
+let countdownTimeout = null
+let letsGoTimeout = null
+
+// --- Manajemen Token & Autentikasi ---
 function getToken() {
   return localStorage.getItem(tokenKey)
 }
@@ -133,7 +143,6 @@ async function login() {
     return data.access_token
   } catch (e) {
     console.error('Login error:', e)
-    // alert('Login otomatis gagal. Pastikan aplikasi backend berjalan dan kredensial benar.') // Dihapus sesuai permintaan
     return null
   }
 }
@@ -158,6 +167,7 @@ async function getValidToken() {
   return currentToken
 }
 
+// --- Pengambilan Data ---
 async function loadFrames() {
   try {
     const validToken = await getValidToken()
@@ -175,56 +185,97 @@ async function loadFrames() {
     frames.value = await res.json()
   } catch (error) {
     console.error('Error load frames:', error)
-    // alert('Gagal memuat daftar frame. Coba refresh halaman.') // Dihapus sesuai permintaan
   }
 }
 
+// --- Interaksi Pengguna & Update Konfigurasi ---
 function selectFrame(frame) {
   selected.value = frame
 }
 
-async function refreshTokenPeriodically() {
-  refreshInterval = setInterval(
-    async () => {
-      const currentToken = getToken()
-      if (!isTokenValid(currentToken) || jwtDecode(currentToken).exp < Math.floor(Date.now() / 1000) + 5 * 60) {
-        console.log('Token expired atau hampir expired, login ulang...')
-        await login()
-      }
-    },
-    5 * 60 * 1000,
-  )
+async function updateServerConfig(frameFileName) {
+  try {
+    const configCopy = JSON.parse(JSON.stringify(configurationStore.configuration))
+
+    if (
+      configCopy.actions &&
+      configCopy.actions.collage &&
+      Array.isArray(configCopy.actions.collage) &&
+      configCopy.actions.collage.length > 0 &&
+      configCopy.actions.collage[0].processing
+    ) {
+      configCopy.actions.collage[0].processing.canvas_img_front_file = `userdata/frame/${frameFileName}`
+    } else {
+      throw new Error('Struktur konfigurasi tidak valid atau item kolase tidak ditemukan.')
+    }
+
+    const token = await getValidToken()
+    if (!token) throw new Error('Token tidak tersedia.')
+
+    const url = `${API_BASE}/api/admin/config/app?reload=true`
+    console.log(`Mengirim PATCH ke: ${url}`)
+
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(configCopy),
+    })
+
+    if (!res.ok) {
+      const errorText = await res.text()
+      throw new Error(`Gagal update konfigurasi. Status: ${res.status} - ${errorText}`)
+    }
+
+    const responseData = await res.json()
+    console.log('Konfigurasi berhasil diupdate di server. Respons:', responseData)
+
+    await configurationStore.initStore(true)
+
+    return true
+  } catch (error) {
+    console.error('updateServerConfig error:', error)
+    alert(`Terjadi kesalahan saat menyimpan konfigurasi: ${error.message}`)
+    return false
+  }
 }
 
-// Computed property frameOverlayImage yang dibutuhkan PreviewStream
+async function handleCollageAction() {
+  if (!selected.value) {
+    alert('Silakan pilih frame terlebih dahulu.')
+    return
+  }
+
+  const updateSuccess = await updateServerConfig(selected.value.name)
+
+  if (updateSuccess) {
+    showCountdownPreview.value = true
+
+    countdownTimeout = setTimeout(() => {
+      showCountdownPreview.value = false
+      showLetsGoAnimation.value = true
+
+      letsGoTimeout = setTimeout(async () => {
+        showLetsGoAnimation.value = false
+        await invokeAction('actions/collage', 0)
+      }, 2000) // Durasi animasi 2 detik
+    }, 15000) // Durasi hitung mundur 15 detik
+  }
+}
+
+// --- Computed Property untuk Preview ---
 const frameOverlayImage = computed(() => {
-  // Anda bisa menyesuaikan logika ini. Misalnya, mengambil overlay dari frame yang dipilih jika ada
-  return configurationStore.configuration.uisettings.livestream_frameoverlay_image || ''
+  return configurationStore.configuration.uisettings?.livestream_frameoverlay_image || ''
 })
 
-// --- Fungsi Baru untuk Menangani Aksi Kolase ---
-async function handleCollageAction() {
-  // 1. Tampilkan preview dan overlay
-  showCountdownPreview.value = true
-
-  // 2. Tunggu 15 detik
-  countdownTimeout = setTimeout(async () => {
-    // 3. Sembunyikan preview
-    showCountdownPreview.value = false
-    // 4. Lanjutkan dengan invokeAction
-    await invokeAction('actions/collage', 0)
-  }, 15 * 1000) // 15 detik
-}
-
-// Fungsi untuk memanggil aksi API (sudah dimodifikasi sebelumnya tanpa alert)
+// --- Panggilan API Generik ---
 async function invokeAction(path, id) {
   const url = `${API_BASE}/api/${path}/${id}`
   try {
     const token = await getValidToken()
-    if (!token) {
-      console.error('Token tidak tersedia. Tidak dapat menjalankan aksi.')
-      return
-    }
+    if (!token) throw new Error('Token tidak tersedia.')
 
     const res = await fetch(url, {
       method: 'GET',
@@ -236,32 +287,14 @@ async function invokeAction(path, id) {
 
     if (!res.ok) {
       const errorText = await res.text()
-      console.error(`Gagal menjalankan aksi. Status: ${res.status} - ${errorText}`)
-      return
+      throw new Error(`Gagal menjalankan aksi. Status: ${res.status} - ${errorText}`)
     }
 
-    let data = {}
-    try {
-      const contentType = res.headers.get('content-type')
-      if (contentType && contentType.includes('application/json')) {
-        const jsonResponse = await res.json()
-        if (jsonResponse) {
-          data = jsonResponse
-        }
-      } else {
-        const textResponse = await res.text()
-        console.log('Respons non-JSON dari API:', textResponse)
-      }
-    } catch (e) {
-      console.warn('Gagal parse respons API sebagai JSON (mungkin kosong atau format lain):', e)
-    }
-
-    console.log('Aksi berhasil (respons diproses):', data)
-
-    if (data && typeof data === 'object' && data.redirect_url) {
+    const data = await res.json().catch(() => ({}))
+    console.log('Aksi berhasil:', data)
+    if (data && data.redirect_url) {
       window.location.href = data.redirect_url
     } else {
-      console.warn('Aksi berhasil dieksekusi, namun tidak ada redirect_url yang disediakan atau respons bukan objek yang diharapkan:', data)
       router.push({ name: 'indexPage' })
     }
   } catch (error) {
@@ -269,7 +302,19 @@ async function invokeAction(path, id) {
   }
 }
 
+// --- Lifecycle Hooks ---
+async function refreshTokenPeriodically() {
+  refreshInterval = setInterval(
+    async () => {
+      await getValidToken()
+    },
+    5 * 60 * 1000,
+  )
+}
+
 onMounted(async () => {
+  configurationStore.initStore()
+
   const validToken = await getValidToken()
   if (validToken) {
     await loadFrames()
@@ -279,7 +324,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (refreshInterval) clearInterval(refreshInterval)
-  if (countdownTimeout) clearTimeout(countdownTimeout) // Bersihkan timeout saat unmount
+  if (countdownTimeout) clearTimeout(countdownTimeout)
+  if (letsGoTimeout) clearTimeout(letsGoTimeout)
 })
 </script>
 
@@ -297,7 +343,7 @@ onBeforeUnmount(() => {
 }
 
 .frame-item {
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   border-radius: 8px;
   cursor: pointer;
   transition:
@@ -307,10 +353,12 @@ onBeforeUnmount(() => {
 
 .frame-item:hover {
   transform: scale(1.05);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .frame-item.selected {
   border-color: #fff;
+  transform: scale(1.05);
 }
 
 .sticky-frame {
@@ -323,14 +371,15 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+  padding-top: 16px;
 }
 
 .selected-preview {
   width: 100%;
-  max-height: 80vh;
+  max-height: 70vh;
   object-fit: contain;
   border-radius: 12px;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
 }
 
 /* Animasi transisi */
@@ -344,28 +393,62 @@ onBeforeUnmount(() => {
   transform: scale(0.8);
 }
 
-/* --- Gaya untuk Overlay --- */
+/* Gaya untuk Overlay */
 .preview-overlay {
-  position: fixed; /* Menjadikan overlay menutupi seluruh layar */
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.85); /* Latar belakang semi-transparan */
-  z-index: 1000; /* Pastikan di atas elemen lain */
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1000;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
-.preview-overlay .q-spinner-grid,
-.preview-overlay .q-spinner-puff {
-  position: absolute; /* Pastikan spinner overlay di tengah */
-  z-index: 1001;
+/* Menyembunyikan elemen utama saat overlay aktif */
+.hidden-on-preview {
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    visibility 0s 0.5s,
+    opacity 0.5s ease;
 }
 
-/* Menyembunyikan elemen utama saat preview overlay aktif */
-.hidden-on-preview {
-  display: none !important;
+/* Gaya untuk Animasi "Let's Go" */
+.lets-go-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  z-index: 2000;
+}
+
+.lets-go-text {
+  font-size: 10rem;
+  font-weight: bold;
+  color: limegreen;
+  text-shadow:
+    0 0 20px limegreen,
+    0 0 40px rgba(0, 255, 0, 0.5);
+  animation: pop-in 1.5s ease-out forwards;
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>
