@@ -2,95 +2,110 @@ import js from '@eslint/js'
 import globals from 'globals'
 import pluginVue from 'eslint-plugin-vue'
 import pluginQuasar from '@quasar/app-vite/eslint'
-import vueTsEslintConfig from '@vue/eslint-config-typescript'
 import prettierSkipFormatting from '@vue/eslint-config-prettier/skip-formatting'
 import vueI18n from '@intlify/eslint-plugin-vue-i18n'
+import tsParser from '@typescript-eslint/parser' // Pastikan ini ada
+import tsPlugin from '@typescript-eslint/eslint-plugin' // <--- IMPORT PLUGIN TYPESCRIPT LANGSUNG
 
 export default [
   {
-    /**
-     * Ignore the following files.
-     * Please note that pluginQuasar.configs.recommended() already ignores
-     * the "node_modules" folder for you (and all other Quasar project
-     * relevant folders and files).
-     *
-     * ESLint requires "ignores" key to be the only one in this object
-     */
     ignores: [],
   },
 
   ...pluginQuasar.configs.recommended(),
   js.configs.recommended,
 
-  /**
-   * https://eslint.vuejs.org
-   *
-   * pluginVue.configs.base
-   *   -> Settings and rules to enable correct ESLint parsing.
-   * pluginVue.configs[ 'flat/essential']
-   *   -> base, plus rules to prevent errors or unintended behavior.
-   * pluginVue.configs["flat/strongly-recommended"]
-   *   -> Above, plus rules to considerably improve code readability and/or dev experience.
-   * pluginVue.configs["flat/recommended"]
-   *   -> Above, plus rules to enforce subjective community defaults to ensure consistency.
-   */
-  ...pluginVue.configs['flat/essential'],
-
-  // https://github.com/vuejs/eslint-config-typescript
-  ...vueTsEslintConfig({
-    // Optional: extend additional configurations from typescript-eslint'.
-    // Supports all the configurations in
-    // https://typescript-eslint.io/users/configs#recommended-configurations
-    extends: [
-      // By default, only the recommended rules are enabled.
-      'recommended',
-      // 'recommendedTypeChecked',
-      // You can also manually enable the stylistic rules.
-      // 'stylistic',
-
-      // Other utility configurations, such as 'eslintRecommended', (note that it's in camelCase)
-      // are also extendable here. But we don't recommend using them directly.
-    ],
-  }),
-
+  // Konfigurasi untuk file Vue
   {
+    files: ['**/*.vue'],
     languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
-
+      parser: pluginVue.parser, // Gunakan vue-eslint-parser
+      parserOptions: {
+        parser: tsParser, // Memberitahu vue-eslint-parser untuk pakai tsParser
+        project: './.quasar/tsconfig.json', // Path ke tsconfig.json yang sebenarnya
+        tsconfigRootDir: import.meta.dirname,
+        extraFileExtensions: ['.vue'],
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
       globals: {
         ...globals.browser,
-        ...globals.node, // SSR, Electron, config files
-        process: 'readonly', // process.env.*
-        ga: 'readonly', // Google Analytics
-        cordova: 'readonly',
-        Capacitor: 'readonly',
-        chrome: 'readonly', // BEX related
-        browser: 'readonly', // BEX related
+        // Tambahkan globals lain jika diperlukan untuk file Vue
       },
     },
-
-    // add your custom rules here
+    plugins: {
+      vue: pluginVue,
+      '@typescript-eslint': tsPlugin, // Gunakan plugin TypeScript yang diimpor langsung
+    },
     rules: {
+      // Aturan untuk Vue
+      ...pluginVue.configs['flat/essential'].rules, // Ambil aturan dari config Vue
+      ...tsPlugin.configs['eslint-recommended'].rules, // Aturan dasar TS
+      ...tsPlugin.configs['recommended'].rules, // Aturan recommended TS
+      ...tsPlugin.configs['recommended-type-checked'].rules, // Aturan TS yang butuh tipe
       'prefer-promise-reject-errors': 'off',
       '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+      'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+      // ... aturan lain yang Anda miliki
+    },
+  },
 
-      // allow debugger during development only
+  // Konfigurasi untuk file TypeScript/JavaScript biasa (non-Vue)
+  {
+    files: ['**/*.{ts,js,jsx,tsx}'],
+    languageOptions: {
+      parser: tsParser, // Langsung pakai tsParser
+      parserOptions: {
+        project: './.quasar/tsconfig.json', // Path ke tsconfig.json yang sebenarnya
+        tsconfigRootDir: import.meta.dirname,
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        process: 'readonly',
+        ga: 'readonly',
+        cordova: 'readonly',
+        Capacitor: 'readonly',
+        chrome: 'readonly',
+        browser: 'readonly',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin, // Gunakan plugin TypeScript yang diimpor langsung
+    },
+    rules: {
+      ...tsPlugin.configs['eslint-recommended'].rules,
+      ...tsPlugin.configs['recommended'].rules,
+      ...tsPlugin.configs['recommended-type-checked'].rules,
+      'prefer-promise-reject-errors': 'off',
+      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
       'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
     },
   },
 
+  // ... (blok konfigurasi lain seperti PWA, jsonforms, vue-i18n, prettier)
+  // Pastikan blok ini tidak menimpa parser atau parserOptions
+
   {
     files: ['src-pwa/custom-service-worker.ts'],
     languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: './.quasar/tsconfig.json', // Pastikan ini menunjuk ke yang benar
+        tsconfigRootDir: import.meta.dirname,
+      },
       globals: {
         ...globals.serviceworker,
       },
     },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
   },
 
-  // Align eslint to jsonforms, mainly to avoid type any errors.
-  // https://github.com/eclipsesource/jsonforms/blob/master/packages/vue-vanilla/.eslintrc.js
+  // Align eslint to jsonforms
   {
     files: ['src/components/form/**'],
     rules: {
@@ -100,8 +115,8 @@ export default [
 
   ...vueI18n.configs['flat/recommended'],
   {
+    files: ['**/*.vue', '**/*.js'],
     rules: {
-      // Optional.
       '@intlify/vue-i18n/no-dynamic-keys': 'error',
       '@intlify/vue-i18n/no-unused-keys': [
         'error',
@@ -112,10 +127,7 @@ export default [
     },
     settings: {
       'vue-i18n': {
-        localeDir: './src/i18n/locales/*.{json,json5,yaml,yml}', // extension is glob formatting!
-
-        // Specify the version of `vue-i18n` you are using.
-        // If not specified, the message will be parsed twice.
+        localeDir: './src/i18n/locales/*.{json,json5,yaml,yml}',
         messageSyntaxVersion: '^9.0.0',
       },
     },

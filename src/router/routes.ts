@@ -7,7 +7,14 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/MainLayout.vue'),
     meta: { standbyMode: false },
     children: [
-      { path: '', component: () => import('pages/IndexPage.vue') }, // autodetected as main page (other than subpage)
+      { path: '', redirect: '/start' },
+      {
+        path: '',
+        name: 'indexPage', // <-- Tambahkan nama ini
+        component: () => import('pages/IndexPage.vue'),
+      },
+      { path: 'start', component: () => import('pages/start.vue') },
+
       { path: 'gallery', component: () => import('pages/GalleryPage.vue') },
       { path: 'gallery/mediaviewer/:id', component: () => import('pages/GalleryDetailPage.vue'), props: { startTimer: false } },
       {
@@ -15,6 +22,11 @@ const routes: RouteRecordRaw[] = [
         name: 'itempresenter',
         component: () => import('pages/GalleryDetailPage.vue'),
         props: { startTimer: true, forceShowDeleteButton: true },
+      },
+      {
+        path: 'select-template',
+        name: 'templateSelector',
+        component: () => import('pages/Templateselect.vue'),
       },
     ],
   },
