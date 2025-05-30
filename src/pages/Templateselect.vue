@@ -20,16 +20,16 @@
 
     <div class="col-3 q-pl-md sticky-frame" :class="{ 'hidden-on-preview': showCountdownPreview }" style="position: sticky; top: 80px">
       <h3 class="text-center">Preview Pilihan</h3>
-      <transition name="fade-zoom">
-        <img v-if="selected" :src="`${API_BASE}/userdata/frame/${selected.name}`" :alt="selected.name" class="q-mt-md selected-preview" />
-      </transition>
 
-      <div v-if="selected" class="q-mt-lg text-center">
-        <q-btn unelevated rounded color="white" text-color="primary" class="q-mt-md" @click="handleCollageAction">
+      <div v-if="selected" class="q-mt-md text-center">
+        <q-btn unelevated rounded color="white" text-color="primary" class="q-mt-xl q-px-xl q-py-md" size="xl" @click="handleCollageAction">
           Lanjut
-          <q-icon name="arrow_forward" class="q-ml-sm" />
         </q-btn>
       </div>
+
+      <transition name="fade-zoom">
+        <img v-if="selected" :src="`${API_BASE}/userdata/frame/${selected.name}`" :alt="selected.name" class="q-mt-lg selected-preview" />
+      </transition>
     </div>
 
     <div v-if="showCountdownPreview" class="fullscreen column justify-center items-center preview-overlay">
@@ -40,8 +40,31 @@
         :enable-mirror-effect-frame="configurationStore.configuration.uisettings.livestream_frameoverlay_mirror_effect"
       ></preview-stream>
 
-      <div id="frontpage-countdown" class="full-height full-width column justify-center content-center" style="position: absolute">
-        <countdown-timer ref="countdowntimer" :duration="15" :message-duration="5" :message-text="'Sesi Anda akan dimulai dalam'"></countdown-timer>
+      <div
+        id="frontpage-countdown"
+        style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          padding: 32px;
+          background-color: rgba(0, 0, 0, 0.6);
+          border-radius: 12px;
+        "
+      >
+        <h2 class="preview-title" style="color: white; text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.5); margin: 0">Sesi Anda akan dimulai dalam</h2>
+
+        <countdown-timer
+          ref="countdowntimer"
+          :duration="15"
+          number-color="limegreen"
+          number-font-size="4rem"
+          number-font-weight="bold"
+        ></countdown-timer>
       </div>
     </div>
   </div>
