@@ -90,7 +90,13 @@ const userConfirm = () => {
 const userReject = () => {
   remoteProcedureCall('/api/processing/reject')
 }
-const userAbort = () => {
-  remoteProcedureCall('/api/processing/abort')
+const userAbort = async () => {
+  try {
+    await remoteProcedureCall('/api/processing/abort')
+    window.location.href = '/'
+  } catch (error) {
+    console.error('Abort failed:', error)
+  }
 }
+
 </script>

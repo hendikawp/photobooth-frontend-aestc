@@ -7,13 +7,13 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/MainLayout.vue'),
     meta: { standbyMode: false },
     children: [
-      { path: '', redirect: '/start' },
+      { path: '', redirect: '/Start' },
       {
         path: '',
         name: 'indexPage', // <-- Tambahkan nama ini
         component: () => import('pages/IndexPage.vue'),
       },
-      { path: 'start', component: () => import('pages/start.vue') },
+      { path: 'start', component: () => import('pages/Start.vue') },
 
       { path: 'gallery', component: () => import('pages/GalleryPage.vue') },
       { path: 'gallery/mediaviewer/:id', component: () => import('pages/GalleryDetailPage.vue'), props: { startTimer: false } },
@@ -26,7 +26,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'select-template',
         name: 'templateSelector',
-        component: () => import('pages/Templateselect.vue'),
+        component: () => import('pages/TemplateSelect.vue'),
       },
     ],
   },

@@ -44,7 +44,7 @@ export default [
       ...tsPlugin.configs['recommended'].rules, // Aturan recommended TS
       ...tsPlugin.configs['recommended-type-checked'].rules, // Aturan TS yang butuh tipe
       'prefer-promise-reject-errors': 'off',
-      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+    '@typescript-eslint/consistent-type-imports': 'off',
       'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
       // ... aturan lain yang Anda miliki
     },
@@ -80,7 +80,7 @@ export default [
       ...tsPlugin.configs['recommended'].rules,
       ...tsPlugin.configs['recommended-type-checked'].rules,
       'prefer-promise-reject-errors': 'off',
-      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+    '@typescript-eslint/consistent-type-imports': 'off',
       'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
     },
   },
