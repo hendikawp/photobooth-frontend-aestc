@@ -1,20 +1,20 @@
-import { SessionStorage } from 'quasar'
+import { LocalStorage } from 'quasar'
 import { Notify } from 'quasar'
 
 export const authStateChange = (credentials) => {
   if (credentials) {
-    SessionStorage.setItem('credentials', credentials)
+    LocalStorage.setItem('credentials', credentials)
   } else {
-    SessionStorage.removeItem('credentials')
+    LocalStorage.removeItem('credentials')
   }
 }
 
 export const hasAccessToken = () => {
-  return SessionStorage.hasItem('credentials')
+  return LocalStorage.hasItem('credentials')
 }
 
 export const getAccessToken = () => {
-  return SessionStorage.getItem('credentials')?.access_token
+  return LocalStorage.getItem('credentials')?.access_token
 }
 
 export const logout = () => {

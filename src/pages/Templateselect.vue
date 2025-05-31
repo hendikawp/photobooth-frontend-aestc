@@ -1,3 +1,4 @@
+<!-- eslint-disable @intlify/vue-i18n/no-raw-text -->
 <template>
   <div
     class="fullscreen bg-primary text-white text-center row flex-center"
@@ -13,7 +14,7 @@
           :class="{ selected: frame.name === selected?.name }"
           @click="selectFrame(frame)"
         >
-          <img :src="`${API_BASE}/userdata/frame/${frame.name}`" :alt="frame.name" width="150" height="auto" loading="lazy" />
+          <img :src="`/userdata/frame/${frame.name}`" :alt="frame.name" width="150" height="auto" loading="lazy" />
         </div>
       </div>
     </div>
@@ -32,7 +33,7 @@
       </div>
 
       <transition name="fade-zoom">
-        <img v-if="selected" :src="`${API_BASE}/userdata/frame/${selected.name}`" :alt="selected.name" class="q-mt-lg selected-preview" />
+        <img v-if="selected" :src="`/userdata/frame/${selected.name}`" :alt="selected.name" class="q-mt-lg selected-preview" />
       </transition>
     </div>
 
@@ -78,166 +79,67 @@
   </div>
 </template>
 
-<script setup>
-import { useRouter } from 'vue-router'
+<script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { jwtDecode } from 'jwt-decode'
+import { useRouter } from 'vue-router'
+import { getAccessToken } from 'src/util/auth'
 
 // Import store dan komponen
-import { useStateStore } from '../stores/state-store'
 import { useConfigurationStore } from '../stores/configuration-store'
 import { default as PreviewStream } from '../components/PreviewStream.vue'
 import CountdownTimer from '../components/CountdownTimer.vue'
 
-// --- Inisialisasi ---
-const router = useRouter()
-const stateStore = useStateStore()
-const configurationStore = useConfigurationStore()
-
+import { Notify } from 'quasar'
 // --- State Reaktif ---
-const frames = ref([])
 const selected = ref(null)
 const showCountdownPreview = ref(false)
 const showLetsGoAnimation = ref(false)
 
-// --- Konstanta ---
-const tokenKey = 'photobooth_access_token'
-const API_BASE = 'http://localhost:9000' // Pastikan port ini sesuai dengan backend Anda
+// --- Router instance ---
+const router = useRouter()
 
 // --- Variabel Internal ---
-let refreshInterval = null
+const refreshInterval = null
 let countdownTimeout = null
 let letsGoTimeout = null
-
-// --- Manajemen Token & Autentikasi ---
-function getToken() {
-  return localStorage.getItem(tokenKey)
-}
-
-function saveToken(newToken) {
-  localStorage.setItem(tokenKey, newToken)
-}
-
-async function login() {
-  try {
-    const formData = new URLSearchParams()
-    formData.append('grant_type', 'password')
-    formData.append('username', 'admin')
-    formData.append('password', '0000')
-    formData.append('scope', '')
-    formData.append('client_id', 'string')
-    formData.append('client_secret', 'string')
-
-    const res = await fetch(`${API_BASE}/api/admin/auth/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json',
-      },
-      body: formData.toString(),
-    })
-
-    if (!res.ok) throw new Error('Login gagal. Status: ' + res.status)
-    const data = await res.json()
-    saveToken(data.access_token)
-    return data.access_token
-  } catch (e) {
-    console.error('Login error:', e)
-    return null
-  }
-}
-
-function isTokenValid(token) {
-  if (!token) return false
-  try {
-    const decoded = jwtDecode(token)
-    const now = Math.floor(Date.now() / 1000)
-    return decoded.exp > now + 60
-  } catch {
-    return false
-  }
-}
-
-async function getValidToken() {
-  let currentToken = getToken()
-  if (!isTokenValid(currentToken)) {
-    console.log('Token tidak valid atau kedaluwarsa, mencoba login ulang...')
-    currentToken = await login()
-  }
-  return currentToken
-}
-
-// --- Pengambilan Data ---
-async function loadFrames() {
-  try {
-    const validToken = await getValidToken()
-    if (!validToken) {
-      throw new Error('Tidak ada token valid untuk memuat frame.')
-    }
-
-    const res = await fetch(`${API_BASE}/api/admin/files/list/userdata/frame`, {
-      headers: {
-        Authorization: `Bearer ${validToken}`,
-      },
-    })
-    if (!res.ok) throw new Error(`Gagal load list frame. Status: ${res.status}`)
-
-    frames.value = await res.json()
-  } catch (error) {
-    console.error('Error load frames:', error)
-  }
-}
 
 // --- Interaksi Pengguna & Update Konfigurasi ---
 function selectFrame(frame) {
   selected.value = frame
 }
 
-async function updateServerConfig(frameFileName) {
-  try {
-    const configCopy = JSON.parse(JSON.stringify(configurationStore.configuration))
+// akses Pinia store konfigurasi
+const configurationStore = useConfigurationStore()
 
-    if (
-      configCopy.actions &&
-      configCopy.actions.collage &&
-      Array.isArray(configCopy.actions.collage) &&
-      configCopy.actions.collage.length > 0 &&
-      configCopy.actions.collage[0].processing
-    ) {
-      configCopy.actions.collage[0].processing.canvas_img_front_file = `userdata/frame/${frameFileName}`
-    } else {
-      throw new Error('Struktur konfigurasi tidak valid atau item kolase tidak ditemukan.')
-    }
+// reactive local copy untuk binding (jika perlu)
+const configuration = ref(configurationStore.configuration)
 
-    const token = await getValidToken()
-    if (!token) throw new Error('Token tidak tersedia.')
+// fungsi untuk update properti spesifik
+function updateServerConfig(frame: string): boolean {
+  if (
+    configuration.value.actions &&
+    Array.isArray(configuration.value.actions.collage) &&
+    configuration.value.actions.collage[0] &&
+    configuration.value.actions.collage[0].processing
+  ) {
+    configuration.value.actions.collage[0].processing.canvas_img_front_file = frame
 
-    const url = `${API_BASE}/api/admin/config/app?reload=true`
-    console.log(`Mengirim PATCH ke: ${url}`)
+    // update juga di store (sinkronisasi)
+    configurationStore.configuration = configuration.value
+    // Log nilai yang diperbarui
+    console.log('Frame updated to:', frame)
+    console.log('Updated config:', configuration.value.actions.collage[0].processing)
 
-    const res = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(configCopy),
+    Notify.create({
+      message: 'Canvas image front file updated!',
+      color: 'positive',
     })
-
-    if (!res.ok) {
-      const errorText = await res.text()
-      throw new Error(`Gagal update konfigurasi. Status: ${res.status} - ${errorText}`)
-    }
-
-    const responseData = await res.json()
-    console.log('Konfigurasi berhasil diupdate di server. Respons:', responseData)
-
-    await configurationStore.initStore(true)
-
     return true
-  } catch (error) {
-    console.error('updateServerConfig error:', error)
-    alert(`Terjadi kesalahan saat menyimpan konfigurasi: ${error.message}`)
+  } else {
+    Notify.create({
+      message: 'Structure not found or invalid!',
+      color: 'negative',
+    })
     return false
   }
 }
@@ -251,17 +153,19 @@ async function handleCollageAction() {
   const updateSuccess = await updateServerConfig(selected.value.name)
 
   if (updateSuccess) {
-    showCountdownPreview.value = true
+    if (updateSuccess) {
+      showCountdownPreview.value = true
 
-    countdownTimeout = setTimeout(() => {
-      showCountdownPreview.value = false
-      showLetsGoAnimation.value = true
+      countdownTimeout = setTimeout(() => {
+        showCountdownPreview.value = false
+        showLetsGoAnimation.value = true
 
-      letsGoTimeout = setTimeout(async () => {
-        showLetsGoAnimation.value = false
-        await invokeAction('actions/collage', 0)
-      }, 2000) // Durasi animasi 2 detik
-    }, 15000) // Durasi hitung mundur 15 detik
+        letsGoTimeout = setTimeout(async () => {
+          showLetsGoAnimation.value = false
+          await invokeAction('actions/collage', 0)
+        }, 2000) // Durasi animasi 2 detik
+      }, 15000) // Durasi hitung mundur 15 detik
+    }
   }
 }
 
@@ -270,17 +174,12 @@ const frameOverlayImage = computed(() => {
   return configurationStore.configuration.uisettings?.livestream_frameoverlay_image || ''
 })
 
-// --- Panggilan API Generik ---
 async function invokeAction(path, id) {
-  const url = `${API_BASE}/api/${path}/${id}`
+  const url = `/api/${path}/${id}`
   try {
-    const token = await getValidToken()
-    if (!token) throw new Error('Token tidak tersedia.')
-
     const res = await fetch(url, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
         Accept: 'application/json',
       },
     })
@@ -292,6 +191,7 @@ async function invokeAction(path, id) {
 
     const data = await res.json().catch(() => ({}))
     console.log('Aksi berhasil:', data)
+
     if (data && data.redirect_url) {
       window.location.href = data.redirect_url
     } else {
@@ -302,25 +202,37 @@ async function invokeAction(path, id) {
   }
 }
 
-// --- Lifecycle Hooks ---
-async function refreshTokenPeriodically() {
-  refreshInterval = setInterval(
-    async () => {
-      await getValidToken()
-    },
-    5 * 60 * 1000,
-  )
-}
+const frames = ref([])
 
 onMounted(async () => {
-  configurationStore.initStore()
-
-  const validToken = await getValidToken()
-  if (validToken) {
-    await loadFrames()
-    refreshTokenPeriodically()
-  }
+  await loadFrames()
 })
+
+async function loadFrames() {
+  try {
+    const token = getAccessToken()
+    if (!token) {
+      throw new Error('No access token available')
+    }
+
+    const response = await fetch('/api/admin/files/list/userdata/frame', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    frames.value = Array.isArray(result) ? result : []
+  } catch (error) {
+    console.error('Error load frames:', error)
+  }
+}
 
 onBeforeUnmount(() => {
   if (refreshInterval) clearInterval(refreshInterval)

@@ -157,6 +157,10 @@ const getConfigurables = async () => {
 
     configurables.value = await response.json()
     console.log(configurables.value)
+    // Tambahkan 'custom_setting' ke list konfigurasi agar muncul di tab
+    if (!configurables.value.includes('custom_setting')) {
+      configurables.value.push('custom_setting')
+    }
   } catch (error) {
     console.warn(error)
 
