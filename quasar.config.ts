@@ -52,7 +52,7 @@ export default defineConfig((ctx) => {
       // minify: false,
       // polyfillModulePreload: true,
       // distDir
-      distDir: '../photobooth-app/photobooth/web_spa/',
+      distDir: '/Users/decka/photobooth-app/myenv/lib/python3.13/site-packages/photobooth/web_spa',
 
       // extendViteConf (viteConf) {},
       // viteVuePluginOptions: {},

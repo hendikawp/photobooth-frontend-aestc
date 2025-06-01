@@ -194,7 +194,7 @@ async function handleCollageAction() {
           showLetsGoAnimation.value = false
           await invokeAction('actions/collage', 0)
         }, 2000) // Durasi animasi 2 detik
-      }, 1000) // Durasi hitung mundur 15 detik
+      }, 15000) // Durasi hitung mundur 15 detik
     }
   }
 }
