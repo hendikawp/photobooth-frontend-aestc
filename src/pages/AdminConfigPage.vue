@@ -10,9 +10,21 @@
           replace
           style="text-transform: capitalize"
         />
+        <!-- Tab Manual tambahan -->
+        <q-route-tab
+          :to="{ name: 'config', params: { section: 'custom_manual' } }"
+          label="Config Custom"
+          replace
+          style="text-transform: capitalize"
+        />
       </q-tabs>
+      <div v-if="selected_configuration === 'custom_manual'" class="q-mt-xl">
+        <q-input v-model.number="timerStore.durasiTimer" label="Durasi Timer (detik)" type="number" min="1" outlined dense required />
+        <q-btn label="Simpan" color="primary" @click="saveDurasiTimer" :loading="loading" style="margin-top: 1rem" />
+      </div>
+
       <json-forms
-        v-if="!isLoadingState"
+        v-if="!isLoadingState && schema && selected_configuration !== 'custom_manual'"
         :data="configuration"
         :ajv="ajv"
         :renderers="renderers"
@@ -21,7 +33,7 @@
         @change="onChange"
       />
 
-      <div v-else class="q-pa-md flex flex-center">
+      <div v-else-if="isLoadingState && selected_configuration !== 'custom_manual'" class="q-pa-md flex flex-center">
         <div>
           <q-spinner-gears size="xl" color="primary" />
         </div>
@@ -80,6 +92,10 @@ import { Notify } from 'quasar'
 import { useRoute } from 'vue-router'
 import type { components } from '../dto/api'
 import { useLocalStorage } from '@vueuse/core'
+import { useTimerStore } from '../stores/timerStore'
+
+const timerStore = useTimerStore()
+const loading = ref(false)
 
 // bind object
 
@@ -121,24 +137,35 @@ const onChange = (event: JsonFormsChangeEvent) => {
 
 const getSchema = async () => {
   try {
+    if (selected_configuration.value === 'custom_manual') {
+      return {
+        type: 'object',
+        properties: {},
+      }
+    }
+
     const response = await _fetch(`/api/admin/config/${selected_configuration.value}/schema?schema_type=dereferenced`)
     console.log(response)
     if (!response.ok) {
       throw new Error('Server returned ' + response.status)
     }
     return await response.json()
-  } catch (err: unknown) {
+  } catch (err) {
     console.warn(err)
 
     Notify.create({
       message: String(err),
-      caption: 'Error getting configuration scheme',
+      caption: 'Error getting configuration schema',
       color: 'negative',
     })
-  } finally {
-    // commit('setLoading', false);
+    // fallback supaya form gak error
+    return {
+      type: 'object',
+      properties: {},
+    }
   }
 }
+
 const updateFormSchema = async () => {
   //loadscreen on
   isLoadingState.value = true
@@ -157,10 +184,6 @@ const getConfigurables = async () => {
 
     configurables.value = await response.json()
     console.log(configurables.value)
-    // Tambahkan 'custom_setting' ke list konfigurasi agar muncul di tab
-    if (!configurables.value.includes('custom_setting')) {
-      configurables.value.push('custom_setting')
-    }
   } catch (error) {
     console.warn(error)
 
@@ -176,9 +199,27 @@ const getConfigurables = async () => {
 
 const getConfig = async () => {
   try {
+    if (selected_configuration.value === 'custom_manual') {
+      return {
+        data: {
+          username: 'admin',
+          email: 'admin@example.com',
+          notifications: true,
+          preferences: {
+            theme: 'dark',
+            language: 'id',
+          },
+          items: [
+            { id: 1, name: 'Item A' },
+            { id: 2, name: 'Item B' },
+          ],
+        },
+      }
+    }
     const response = await _fetch(`/api/admin/config/${selected_configuration.value}`)
-    console.log(response)
-
+    if (!response.ok) {
+      throw new Error('Server returned ' + response.status)
+    }
     return await response.json()
   } catch (error) {
     console.warn(error)
@@ -186,10 +227,13 @@ const getConfig = async () => {
     Notify.create({
       message: String(error),
       caption: 'Error getting config!',
-      color: 'red',
+      color: 'negative',
     })
-  } finally {
-    // commit('setLoading', false);
+
+    // fallback supaya gak undefined dan mencegah error
+    return {
+      data: {},
+    }
   }
 }
 
@@ -257,6 +301,21 @@ const saveConfig = async () => {
       caption: 'Error saving config',
       color: 'negative',
     })
+  }
+}
+const saveDurasiTimer = async () => {
+  loading.value = true
+  try {
+    await timerStore.setDurasi(timerStore.durasiTimer)
+    setTimeout(() => {
+      Notify.create({
+        message: `Durasi timer disimpan: ${timerStore.durasiTimer} detik`,
+        color: 'positive',
+      })
+      loading.value = false
+    }, 500)
+  } finally {
+    loading.value = false
   }
 }
 </script>

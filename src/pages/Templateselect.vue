@@ -65,7 +65,7 @@
 
         <countdown-timer
           ref="countdowntimer"
-          :duration="15"
+          :duration="timerStore.durasiTimer"
           number-color="limegreen"
           number-font-size="4rem"
           number-font-weight="bold"
@@ -83,6 +83,7 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAccessToken } from 'src/util/auth'
+import { useTimerStore } from '../stores/timerStore'
 
 // Import store dan komponen
 import { useConfigurationStore } from '../stores/configuration-store'
@@ -94,6 +95,7 @@ import { Notify } from 'quasar'
 const selected = ref(null)
 const showCountdownPreview = ref(false)
 const showLetsGoAnimation = ref(false)
+const timerStore = useTimerStore()
 
 // --- Router instance ---
 const router = useRouter()
@@ -194,7 +196,7 @@ async function handleCollageAction() {
           showLetsGoAnimation.value = false
           await invokeAction('actions/collage', 0)
         }, 2000) // Durasi animasi 2 detik
-      }, 15000) // Durasi hitung mundur 15 detik
+      }, timerStore.durasiTimer * 1000) // Durasi hitung mundur 15 detik
     }
   }
 }
