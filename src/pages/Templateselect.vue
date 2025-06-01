@@ -112,32 +112,62 @@ function selectFrame(frame) {
 const configurationStore = useConfigurationStore()
 
 // reactive local copy untuk binding (jika perlu)
-const configuration = ref(configurationStore.configuration)
 
-// fungsi untuk update properti spesifik
-function updateServerConfig(frame: string): boolean {
-  if (
-    configuration.value.actions &&
-    Array.isArray(configuration.value.actions.collage) &&
-    configuration.value.actions.collage[0] &&
-    configuration.value.actions.collage[0].processing
-  ) {
-    configuration.value.actions.collage[0].processing.canvas_img_front_file = frame
+const CONFIG_API_URL = `/api/admin/config/app?reload=true`
 
-    // update juga di store (sinkronisasi)
-    configurationStore.configuration = configuration.value
-    // Log nilai yang diperbarui
-    console.log('Frame updated to:', frame)
-    console.log('Updated config:', configuration.value.actions.collage[0].processing)
+async function updateServerConfig(frame: string): Promise<boolean> {
+  try {
+    // Buat salinan konfigurasi untuk update dan kirim ke server
+    const configCopy = JSON.parse(JSON.stringify(configurationStore.configuration))
 
-    Notify.create({
-      message: 'Canvas image front file updated!',
-      color: 'positive',
+    // Validasi struktur config
+    if (!configCopy.actions?.collage?.[0]?.processing) {
+      Notify.create({
+        message: 'Struktur konfigurasi tidak valid.',
+        color: 'negative',
+      })
+      return false
+    }
+
+    // Update frame baru di salinan config
+    configCopy.actions.collage[0].processing.canvas_img_front_file = `userdata/frame/${frame}`
+
+    const token = getAccessToken()
+    if (!token) {
+      Notify.create({
+        message: 'Access token tidak tersedia.',
+        color: 'negative',
+      })
+      return false
+    }
+
+    // Kirim PATCH ke server dengan body JSON salinan config
+    const response = await fetch(CONFIG_API_URL, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(configCopy),
     })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
+    }
+
+    // Kalau sukses, update store supaya sinkron dengan server
+    await configurationStore.initStore(true)
+
     return true
-  } else {
+  } catch (error: unknown) {
+    console.error('Gagal update config:', error)
+    let message = 'Gagal menyimpan konfigurasi ke server.'
+    if (error instanceof Error) {
+      message += ` ${error.message}`
+    }
     Notify.create({
-      message: 'Structure not found or invalid!',
+      message,
       color: 'negative',
     })
     return false
@@ -164,7 +194,7 @@ async function handleCollageAction() {
           showLetsGoAnimation.value = false
           await invokeAction('actions/collage', 0)
         }, 2000) // Durasi animasi 2 detik
-      }, 15000) // Durasi hitung mundur 15 detik
+      }, 1000) // Durasi hitung mundur 15 detik
     }
   }
 }
