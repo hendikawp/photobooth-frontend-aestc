@@ -7,7 +7,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('layouts/MainLayout.vue'),
     meta: { standbyMode: false },
     children: [
-      { path: '', redirect: '/Start' },
+      { path: '', redirect: '/select-template' },
       {
         path: '',
         name: 'indexPage', // <-- Tambahkan nama ini
@@ -27,6 +27,11 @@ const routes: RouteRecordRaw[] = [
         path: 'select-template',
         name: 'templateSelector',
         component: () => import('pages/TemplateSelect.vue'),
+      },
+      {
+        path: 'payment',
+        name: 'payment',
+        component: () => import('pages/Payment.vue'),
       },
     ],
   },

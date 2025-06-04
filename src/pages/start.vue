@@ -19,6 +19,9 @@ const router = useRouter()
 const subtitleText = 'Solusi photobooth modern, open-source, dan siap digunakan untuk acara kamu.'
 
 function start() {
-  router.push({ name: 'templateSelector' })
+  router.push({ name: 'payment' })
 }
+/* function start() {
+  router.push({ name: 'templateSelector' })
+} */
 </script>

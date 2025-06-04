@@ -65,7 +65,7 @@
 
         <countdown-timer
           ref="countdowntimer"
-          :duration="timerStore.durasiTimer"
+          :duration="localconfig.timer_duration"
           number-color="limegreen"
           number-font-size="4rem"
           number-font-weight="bold"
@@ -83,19 +83,16 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAccessToken } from 'src/util/auth'
-import { useTimerStore } from '../stores/timerStore'
-
 // Import store dan komponen
 import { useConfigurationStore } from '../stores/configuration-store'
 import { default as PreviewStream } from '../components/PreviewStream.vue'
 import CountdownTimer from '../components/CountdownTimer.vue'
-
 import { Notify } from 'quasar'
+
 // --- State Reaktif ---
 const selected = ref(null)
 const showCountdownPreview = ref(false)
 const showLetsGoAnimation = ref(false)
-const timerStore = useTimerStore()
 
 // --- Router instance ---
 const router = useRouter()
@@ -159,7 +156,7 @@ async function updateServerConfig(frame: string): Promise<boolean> {
     }
 
     // Kalau sukses, update store supaya sinkron dengan server
-    await configurationStore.initStore(true)
+    configurationStore.initStore(true)
 
     return true
   } catch (error: unknown) {
@@ -196,7 +193,7 @@ async function handleCollageAction() {
           showLetsGoAnimation.value = false
           await invokeAction('actions/collage', 0)
         }, 2000) // Durasi animasi 2 detik
-      }, timerStore.durasiTimer * 1000) // Durasi hitung mundur 15 detik
+      }, localconfig.value.timer_duration * 1000) // Durasi hitung mundur 15 detik
     }
   }
 }
@@ -237,7 +234,7 @@ async function invokeAction(path, id) {
 const frames = ref([])
 
 onMounted(async () => {
-  await loadFrames()
+  Promise.all([loadFrames(), loadconfigcustom()])
 })
 
 async function loadFrames() {
@@ -265,7 +262,36 @@ async function loadFrames() {
     console.error('Error load frames:', error)
   }
 }
+const localconfig = ref({
+  plugin_enabled: true,
+  url_payment: '',
+  timer_duration: 15,
+})
+async function loadconfigcustom() {
+  try {
+    const token = getAccessToken()
+    if (!token) {
+      throw new Error('No access token available')
+    }
 
+    const response = await fetch('/api/admin/config/Customsetting.Customsetting', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    localconfig.value = result
+  } catch (error) {
+    console.error('Error load config:', error)
+  }
+}
 onBeforeUnmount(() => {
   if (refreshInterval) clearInterval(refreshInterval)
   if (countdownTimeout) clearTimeout(countdownTimeout)

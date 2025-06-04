@@ -18,10 +18,6 @@
           style="text-transform: capitalize"
         />
       </q-tabs>
-      <div v-if="selected_configuration === 'custom_manual'" class="q-mt-xl">
-        <q-input v-model.number="timerStore.durasiTimer" label="Durasi Timer (detik)" type="number" min="1" outlined dense required />
-        <q-btn label="Simpan" color="primary" @click="saveDurasiTimer" :loading="loading" style="margin-top: 1rem" />
-      </div>
 
       <json-forms
         v-if="!isLoadingState && schema && selected_configuration !== 'custom_manual'"
@@ -92,10 +88,6 @@ import { Notify } from 'quasar'
 import { useRoute } from 'vue-router'
 import type { components } from '../dto/api'
 import { useLocalStorage } from '@vueuse/core'
-import { useTimerStore } from '../stores/timerStore'
-
-const timerStore = useTimerStore()
-const loading = ref(false)
 
 // bind object
 
@@ -301,21 +293,6 @@ const saveConfig = async () => {
       caption: 'Error saving config',
       color: 'negative',
     })
-  }
-}
-const saveDurasiTimer = async () => {
-  loading.value = true
-  try {
-    await timerStore.setDurasi(timerStore.durasiTimer)
-    setTimeout(() => {
-      Notify.create({
-        message: `Durasi timer disimpan: ${timerStore.durasiTimer} detik`,
-        color: 'positive',
-      })
-      loading.value = false
-    }, 500)
-  } finally {
-    loading.value = false
   }
 }
 </script>
