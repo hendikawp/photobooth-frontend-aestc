@@ -54,7 +54,7 @@ stateStore.$subscribe((mutation, state) => {
     // quick fix: receive "counting" state but not on indexpage, push router to index
     console.log('counting state received, pushing to index page to countdown')
 
-    router.push('/')
+    router.push({ name: 'indexPage' })
   }
   if (state.source == 'completed' && state.target == 'present') {
     // if aborted, source can by anything but completed. when source is completed, the job was successful and we have an id

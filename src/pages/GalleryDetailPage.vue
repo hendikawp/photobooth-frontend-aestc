@@ -6,7 +6,7 @@
         <HeaderCountdownTimer
           v-if="headercountdowntimer"
           :duration="configurationStore.configuration.uisettings.AUTOCLOSE_NEW_ITEM_ARRIVED"
-          @trigger-timeout="$router.push({ path: '/' })"
+          @trigger-timeout="goToPaymentUrl"
         ></HeaderCountdownTimer>
         <HeaderProcessing v-if="displayIndeterminateProgressbar"></HeaderProcessing>
       </q-header>
@@ -99,6 +99,8 @@ import { useQuasar } from 'quasar'
 import { type ShareSchema } from '../components/ShareTriggerButtons.vue'
 import { remoteProcedureCall, _fetch } from '../util/fetch_api.js'
 import { watchDebounced } from '@vueuse/core'
+import { storeToRefs } from 'pinia'
+import { useConfigStore } from '../stores/configStore' // 1. Import store
 
 const $q = useQuasar()
 const route = useRoute()
@@ -127,6 +129,7 @@ watch(route, (to) => {
 })
 onMounted(() => {
   headercountdowntimer.value = props.startTimer
+  configStore.loadConfig()
 })
 const onCarouselTransition = (newMediaitemId: string) => {
   selectedMediaitemId.value = newMediaitemId
@@ -249,6 +252,21 @@ const doShareActionWithParameters = async (config_index: number, input_data: unk
       caption: 'Request Error!',
       color: 'negative',
     })
+  }
+}
+
+// 2. Panggil dan gunakan config store
+const configStore = useConfigStore()
+// 3. Ambil 'config' dari store dengan reaktivitas menggunakan storeToRefs
+const { config } = storeToRefs(configStore)
+
+// 4. Buat fungsi untuk navigasi ke URL pembayaran
+const goToPaymentUrl = () => {
+  // Pastikan URL ada sebelum mencoba mengarahkan
+  if (config.value.url_payment) {
+    window.location.href = config.value.url_payment
+  } else {
+    console.warn('url_payment tidak tersedia di dalam config.')
   }
 }
 </script>

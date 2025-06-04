@@ -19,10 +19,10 @@
     <!-- ITEMS END -->
 
     <q-page-sticky position="top-left" class="q-ma-lg">
-      <q-btn id="layout-button-back" color="grey" rounded no-caps @click="userAbort()" class="action-button glass-effect">
+      <!--  <q-btn id="layout-button-back" color="grey" rounded no-caps @click="userAbort()" class="action-button glass-effect" disable>
         <q-icon left name="sym_o_cancel" />
         <div>{{ $t('MSG_APPROVE_COLLAGE_ITEM_CANCEL_COLLAGE') }}</div>
-      </q-btn>
+      </q-btn> -->
     </q-page-sticky>
     <q-page-sticky position="bottom" class="q-ma-lg">
       <div class="q-mb-lg action-buttons col">
@@ -90,12 +90,12 @@ const userConfirm = () => {
 const userReject = () => {
   remoteProcedureCall('/api/processing/reject')
 }
-const userAbort = async () => {
+/* const userAbort = async () => {
   try {
     await remoteProcedureCall('/api/processing/abort')
     window.location.href = '/'
   } catch (error) {
     console.error('Abort failed:', error)
   }
-}
+} */
 </script>
